@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>学习时长统计系统</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="学习时长统计系统首页">
+        <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>学习时长</strong><small>让专注，看得见。</small></span>
+      </a>
+      <div class="nav-label">你的学习空间</div>
+      <nav id="navigation" aria-label="主导航"></nav>
+      <div class="sidebar-bottom">
+        <div class="local-note"><span class="local-dot"></span> 数据仅保存在本机</div>
+        <div class="sidebar-status" id="sidebar-status"><span class="status-dot"></span><span>正在连接统计服务</span></div>
+        <button class="sidebar-pause" id="pause-button" disabled>连接中…</button>
+        <div class="version" id="version">学习时长统计系统</div>
+      </div>
+    </aside>
+    <main class="main" id="main">
+      <div id="demo-banner" class="demo-banner" hidden>演示数据 · 当前仅预览界面，不进行真实计时</div>
+      <header class="topbar">
+        <div class="breadcrumb" id="breadcrumb">概览</div>
+        <div class="topbar-right"><span id="today-label"></span><span class="timezone-tag">北京时间</span></div>
+      </header>
+      <div id="service-notice" class="info-banner" role="status" hidden></div>
+      <div id="content" aria-live="polite"><div class="loading-screen"><div class="loader"></div><h2>准备好，开始专注。</h2><p>正在连接本机统计服务…</p></div></div>
+      <footer class="main-footer"><span>把时间，留给真正的成长。</span><span>前台窗口 · 键鼠活动 · 本地记录</span></footer>
+    </main>
+  </div>
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+  <script src="app.js"></script>
+</body>
+</html>
