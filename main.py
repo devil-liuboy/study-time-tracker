@@ -65,13 +65,25 @@ def main():
         pystray.MenuItem('退出', quit_app)))
     service.on_quit = quit_app
     window.events.closing += closing
-    if not args.background:
-        # An installer may suppress the launcher's initial OS window. Show the
-        # actual interactive panel once loaded; login startup stays in the tray.
-        window.events.loaded += lambda: window.show()
+
+    def loaded():
+        # Keep login startup tray-only even if WebView2 briefly creates the
+        # native form while loading. The tray menu is the only way to reveal
+        # the panel in background mode.
+        if args.background:
+            window.hide()
+        else:
+            window.show()
+
+    window.events.loaded += loaded
+
     def started():
         icon.run_detached()
         service.start()
+        # Belt-and-suspenders protection for WebView2 implementations that
+        # create the native form before the loaded event is dispatched.
+        if args.background:
+            window.hide()
     try:
         webview.start(started, gui='edgechromium', private_mode=True, storage_path=str(data_dir / 'webview'), debug=False)
     finally:
