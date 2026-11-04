@@ -53,11 +53,19 @@
 
 ## 应用、网站和报表
 
+### 图表概览（1.1.0）
+
+- **今日**：圆环饼图展示自动记录的时间组成，可按应用／网站来源或学习分类查看；图例同时显示时长与占比，较小来源合并为“其他”。
+- **本周／本月**：按北京时间自然日显示柱状图，突出今天，未到来的日期保留空位；同时显示日均时长、最高一天和有记录天数。日均以已经过的自然日（含今天及零记录日）计算。
+- **统计口径**：圆环只展示自动记录，手动补记和扣减单独列出；柱状图和总计包含手动修正。待确认部分会明确标注，仍遵循三分钟空闲回扣规则。
+
+布局参考 [Toggl Summary Report](https://support.toggl.com/en-us/article/summary-report-1emjk2m/) 和 [Clockify Summary Report](https://clockify.me/help/reports/summary-report) 的时间趋势与组成分布展示方式；图表、代码和视觉样式由本项目独立实现，不加载第三方图表服务。
+
 - 核心应用候选包括 Codex、Claude、Cursor、Antigravity、OpenCode、WorkBuddy、Cherry Studio、VS Code、PyCharm、IntelliJ IDEA、Eclipse、Dev-C++、Zotero、Obsidian。只有实际找到的可执行文件会加入，不代表每台电脑都装有这些应用。
 - Office/WPS、终端、阅读器、虚拟机等属于可选候选，默认不启用。在应用页扫描并勾选后才参与统计；软件搬迁后可重新扫描或重新选择路径。
 - 默认提供 19 个学习网站规则，涵盖 arXiv、GitHub、Hugging Face、学术检索、技术文档和 AI 对话。白名单可以修改；一个域名规则同时包含其子域名，并汇总到该规则。例如 `github.com` 不会匹配 `github.com.example.org`。
 - 今日、本周、本月与自定义日期报表展示总量、应用/网站分类和趋势，并支持 CSV 导出。
-- 手动修正以独立的增减记录保留，可撤销。它不会改写自动记录；修正后的单日已确认总量须在 0～24 小时之间。
+- 手动修正以独立的增减记录保留，可撤销。它不会改写自动记录；修正后的单日已确认总量须在 0～24 小时之间。补记日期不能晚于北京时间今天，自定义报表也只查询已经到来的日期。
 
 ## 本机数据与隐私
 
@@ -90,7 +98,7 @@ GitHub 同步范围是源代码、通用配置和发布文件。个人应用清�
 
 ## 从源码运行
 
-要求 Windows 10/11 x64、Python 3.10 或以上、WebView2 Runtime。Node.js 仅用于扩展自动测试，不是最终桌面程序的运行依赖。
+要求 Windows 10/11 x64、Python 3.10 或以上、WebView2 Runtime。Node.js 仅用于扩展和图表自动测试，不是最终桌面程序的运行依赖。
 
 ```powershell
 python -m venv .venv
@@ -111,6 +119,7 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 node --test extension/tests/protocol.test.mjs extension/tests/background.test.mjs
+node --test tests/*.test.cjs
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Python .\.venv\Scripts\python.exe -SkipInstall
 ```
 
@@ -118,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Python .\.venv\
 
 构建会覆盖本项目 `dist\StudyTimeTracker` 中的旧构建产物。安装脚本可用 `-ValidateOnly` 检查目标路径和包结构而不执行安装，或用 `-NoLaunch` 安装后暂不启动。
 
-GitHub Actions 在 Windows 上运行 Python 与扩展自动测试；手动触发或推送 `v*` 标签时额外构建 ZIP，并作为 workflow artifact 保存。工作流不会自动启用浏览器开发者模式或在用户电脑上安装程序。
+GitHub Actions 在 Windows 上运行 Python、扩展与图表自动测试；手动触发或推送 `v*` 标签时额外构建 ZIP，并作为 workflow artifact 保存。工作流不会自动启用浏览器开发者模式或在用户电脑上安装程序。
 
 自动测试覆盖空闲回扣、采样中断、日期拆分、统计修正、域名校验、浏览器认证及扩展状态处理等逻辑。通过这些测试不等同于完成真实 Windows 应用切换、锁屏/恢复、浏览器安装和登录自启的端到端验证；请以具体发布说明中的实测记录为准。
 

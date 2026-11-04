@@ -48,7 +48,7 @@ try {
     $webAssets = Join-Path $assetRoot 'web'
     $extensionAssets = Join-Path $assetRoot 'extension'
     $null = New-Item -ItemType Directory -Path $webAssets, $extensionAssets -Force
-    foreach ($name in @('index.html', 'app.js', 'style.css')) {
+    foreach ($name in @('index.html', 'app.js', 'charts.js', 'style.css')) {
         Copy-Item -LiteralPath (Join-Path $projectRoot ('web\' + $name)) -Destination $webAssets
     }
     foreach ($name in @('manifest.json', 'background.js', 'protocol.mjs', 'popup.html', 'popup.css', 'popup.js', 'README.md')) {

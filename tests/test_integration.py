@@ -12,6 +12,7 @@ from studytime.discovery import classify
 from studytime.service import Service, TZ, report_bounds
 from studytime.store import day_bounds
 import studytime.windows as windows_module
+import studytime.service as service_module
 
 
 @pytest.fixture
@@ -175,6 +176,44 @@ def test_beijing_custom_bounds_and_invalid_window():
     assert datetime.fromtimestamp(start, TZ).hour == 0
     with pytest.raises(ValueError):
         report_bounds({"range": "custom", "start": "2026-11-05", "end": "2026-11-04"})
+
+
+def test_manual_future_validation_changes_exactly_at_beijing_midnight(service, monkeypatch):
+    clock = [datetime.fromisoformat("2026-11-03T15:59:59+00:00")]
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            assert tz is TZ, "Manual-date validation must explicitly use Beijing time"
+            return clock[0].astimezone(tz)
+
+    monkeypatch.setattr(service_module, "datetime", FrozenDateTime)
+    start, end = day_bounds("2026-11-04")
+    value = {"date": "2026-11-04", "minutes": 1, "name": "阅读补记"}
+    denied = service.add_manual(value)
+    assert "北京时间今天" in denied["error"]
+    assert service.store.report(start, end)["total_seconds"] == 0
+    clock[0] = datetime.fromisoformat("2026-11-03T16:00:00+00:00")
+    assert service.add_manual(value)["ok"] is True
+    assert service.store.report(start, end)["confirmed_seconds"] == 60
+    assert service.add_manual({**value, "date": "2026-11-03"})["ok"] is True
+
+
+def test_service_rejects_new_future_corrections_without_rewriting_existing_storage(service, monkeypatch):
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat("2026-11-04T12:00:00+08:00").astimezone(tz)
+
+    monkeypatch.setattr(service_module, "datetime", FrozenDateTime)
+    future_date = "2026-11-05"
+    original_id = service.store.add_manual(future_date, 120, "既有记录")
+    denied = service.add_manual({"date": future_date, "minutes": -1, "name": "未来扣减"})
+    assert "北京时间今天" in denied["error"]
+    start, end = day_bounds(future_date)
+    report = service.store.report(start, end)
+    assert report["confirmed_seconds"] == 120
+    assert [row["id"] for row in report["sessions"]] == [original_id]
 
 
 def test_csv_is_confirmed_only_and_escapes_formula_names(service, tmp_path, monkeypatch):

@@ -32,6 +32,8 @@ jobs:
         run: python -m pytest -q
       - name: Browser extension tests
         run: node --test extension/tests/protocol.test.mjs extension/tests/background.test.mjs
+      - name: Dashboard calculation tests
+        run: node --test tests/*.test.cjs
       - name: Parse PowerShell distribution scripts
         shell: pwsh
         run: |

@@ -200,6 +200,9 @@ class Service:
     @public_api
     def add_manual(self, value):
         with self.lock:
+            correction_day = datetime.strptime(value['date'], '%Y-%m-%d').date()
+            if correction_day > datetime.now(TZ).date():
+                raise ValueError('手动修正日期不能晚于北京时间今天')
             ident = self.store.add_manual(value['date'], float(value['minutes']) * 60, value.get('name', '手动修正'), value.get('category', '手动修正'))
         return {'ok': True, 'id': ident}
 

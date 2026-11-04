@@ -29,7 +29,7 @@ function icon(name, size = 17, cls = '') {
   return `<svg class="${e(cls)}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.apps}</svg>`;
 }
 const pageNames = {overview:'概览', apps:'学习软件', websites:'学习网站', records:'时间记录', settings:'设置'};
-const appState = {page:'overview', range:'today', start:'', end:'', data:null, busy:false, connected:false, scanResults:[], browserSetup:null, appSearch:'', siteSearch:'', siteDraft:{domain:'',category:'research'}, renderedConfig:''};
+const appState = {page:'overview', range:'today', start:'', end:'', data:null, busy:false, connected:false, scanResults:[], browserSetup:null, appSearch:'', siteSearch:'', siteDraft:{domain:'',category:'research'}, renderedConfig:'', chartGroup:'source', chartHover:false};
 const DEMO = new URLSearchParams(location.search).get('demo') === '1';
 const TZ = 'Asia/Shanghai';
 function dateKey(date = new Date()) { const parts=new Intl.DateTimeFormat('en-CA', {timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date); const get=type=>parts.find(part=>part.type===type).value;return `${get('year')}-${get('month')}-${get('day')}`; }
@@ -106,38 +106,67 @@ function heading(eyebrow, title, subtitle, actions = '') {
   return `<div class="page-head"><div><div class="eyebrow">${e(eyebrow)}</div><h1>${e(title)}</h1><p class="subtitle">${e(subtitle)}</p></div>${actions ? `<div class="head-actions">${actions}</div>` : ''}</div>`;
 }
 function periodToolbar() {
-  return `<div class="period-toolbar"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="segmented" role="group" aria-label="统计范围">${[['today','今日'],['week','本周'],['month','本月'],['custom','自定义']].map(([key,label])=>`<button data-action="range" data-value="${key}" class="${appState.range === key ? 'active' : ''}" aria-pressed="${appState.range === key}">${label}</button>`).join('')}</div>${appState.range === 'custom' ? `<div class="date-range"><input type="date" id="range-start" aria-label="起始日期" value="${e(appState.start)}"><span style="color:#aaa;font-size:10px">至</span><input type="date" id="range-end" aria-label="结束日期" value="${e(appState.end)}"><button class="btn btn-soft" data-action="apply-range" style="padding:7px 10px;min-height:30px">查看</button></div>` : ''}</div><span class="toolbar-note">${icon('clock',12)} 实时更新</span></div>`;
+  return `<div class="period-toolbar"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="segmented" role="group" aria-label="统计范围">${[['today','今日'],['week','本周'],['month','本月'],['custom','自定义']].map(([key,label])=>`<button data-action="range" data-value="${key}" class="${appState.range === key ? 'active' : ''}" aria-pressed="${appState.range === key}">${label}</button>`).join('')}</div>${appState.range === 'custom' ? `<div class="date-range"><input type="date" id="range-start" aria-label="起始日期" value="${e(appState.start)}" max="${dateKey()}"><span style="color:#aaa;font-size:10px">至</span><input type="date" id="range-end" aria-label="结束日期" value="${e(appState.end)}" max="${dateKey()}"><button class="btn btn-soft" data-action="apply-range" style="padding:7px 10px;min-height:30px">查看</button></div>` : ''}</div><span class="toolbar-note">${icon('clock',12)} 实时更新</span></div>`;
 }
 function emptyState(title, subtitle, symbol = 'chart', action = '') {
   return `<div class="empty-state"><span class="empty-icon">${icon(symbol,35)}</span><h3>${e(title)}</h3><p>${e(subtitle)}</p>${action}</div>`;
 }
-function chartSvg(daily) {
-  const rows = Array.isArray(daily) ? daily : [];
-  if (!rows.length || rows.every(row => !row.seconds)) return `<div class="chart-empty"><span class="empty-icon">${icon('chart',31)}</span><span>还没有记录，下一段专注从现在开始。</span></div>`;
-  const w = 520, h = 180, left = 35, right = 10, top = 12, bottom = 28;
-  const values = rows.map(row => Math.max(0, Number(row.seconds) || 0));
-  const max = Math.max(...values, 60), maxHours = max / 3600;
-  const scale = maxHours > 1 ? Math.ceil(maxHours) * 3600 : Math.max(300, Math.ceil(max / 300) * 300);
-  const chartHeight = h - top - bottom, cell = (w - left - right) / rows.length;
-  const barWidth = Math.min(32, cell * .52);
-  let svg = `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="每日学习时长柱状图"><defs><linearGradient id="bar-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5aa4fa"/><stop offset="1" stop-color="#a8cfff"/></linearGradient></defs>`;
-  [0,.5,1].forEach(fraction => { const y = top + chartHeight * (1 - fraction); const value = scale * fraction; const label = scale >= 3600 ? `${Number((value/3600).toFixed(1))}h` : `${Math.round(value/60)}m`; svg += `<line x1="${left}" y1="${y}" x2="${w-right}" y2="${y}" stroke="#efeff4" stroke-dasharray="3 4"/><text x="${left-9}" y="${y+4}" text-anchor="end" fill="#6e6e73" font-size="12">${label}</text>`; });
-  rows.forEach((row,index) => { const x = left + index * cell + (cell-barWidth)/2, barH = Math.max(values[index] > 0 ? 3 : 0, values[index]/scale*chartHeight), labelDate = String(row.date || '').slice(5).replace('-','/'); const labelStep = Math.max(1,Math.ceil(rows.length/8)); svg += `<rect x="${x}" y="${top+chartHeight-barH}" width="${barWidth}" height="${barH}" rx="${Math.min(5,barWidth/2)}" fill="url(#bar-gradient)"><title>${e(row.date)}：${e(shortTime(row.seconds))}</title></rect>`; if (index % labelStep === 0 || rows.length === 1) svg += `<text x="${x+barWidth/2}" y="${h-8}" text-anchor="middle" fill="#6e6e73" font-size="12">${e(labelDate)}</text>`; });
-  return svg + '</svg>';
+function signedTime(seconds) { return `${Number(seconds)>0?'+':''}${shortTime(seconds)}`; }
+function distributionPercent(value) { return `${Number(value)>0&&Number(value)<0.1?'＜0.1':Number(value)<1&&Number(value)>0?Number(value).toFixed(1):Math.round(Number(value)||0)}%`; }
+function donutPanel(distribution) {
+  const switcher=`<div class="segmented chart-group" role="group" aria-label="饼图分组方式">${[['source','按来源'],['category','按分类']].map(([value,label])=>`<button data-action="chart-group" data-value="${value}" class="${appState.chartGroup===value?'active':''}" aria-pressed="${appState.chartGroup===value}">${label}</button>`).join('')}</div>`;
+  let arcs='',offset=0;
+  for(const item of distribution.items){
+    const tip=`${item.name} · ${shortTime(item.seconds)} · ${distributionPercent(item.percent)}`;
+    arcs+=`<circle class="donut-segment" cx="130" cy="130" r="94" fill="none" stroke="${item.color}" stroke-width="31" pathLength="100" stroke-dasharray="${item.percent.toFixed(7)} ${(100-item.percent).toFixed(7)}" stroke-dashoffset="${(-offset).toFixed(7)}" transform="rotate(-90 130 130)" tabindex="0" role="img" aria-label="${e(tip)}" data-chart-tip="${e(tip)}" data-chart-key="${e(item.id)}"><title>${e(tip)}</title></circle>`;
+    offset+=item.percent;
+  }
+  const legend=distribution.items.length?distribution.items.map(item=>`<div class="donut-legend-row" tabindex="0" data-chart-tip="${e(`${item.name} · ${shortTime(item.seconds)} · ${distributionPercent(item.percent)}`)}" data-chart-key="legend-${e(item.id)}"><span class="legend-color" style="background:${item.color}"></span><span class="legend-source" title="${e(item.name)}">${e(item.name)}</span><span class="legend-duration">${e(compactTime(item.seconds))}</span><span class="legend-percent">${distributionPercent(item.percent)}</span></div>`).join(''):`<div class="donut-empty-copy"><h3>下一段专注，从这里开始。</h3><p>打开已启用的学习软件或网站，时间会在这里汇成一幅清晰的图景。</p></div>`;
+  const manualNote=distribution.manual_count?`<span class="manual-note">手动修正 ${e(signedTime(distribution.manual_seconds))} 已计入总时长，未纳入圆环占比。</span>`:'';
+  return `<section class="card distribution-card"><div class="card-head"><div><h2>今天，时间花在哪里</h2><p class="chart-subtitle">自动记录的时间组成</p></div>${switcher}</div><div class="donut-layout"><div class="donut-wrap"><svg class="donut-chart" viewBox="0 0 260 260" role="group" aria-label="今日自动学习时长组成饼图">${distribution.total_seconds>0?arcs:'<circle cx="130" cy="130" r="94" fill="none" stroke="#eef0f5" stroke-width="27" stroke-dasharray="3 5"/>'}</svg><div class="donut-center"><span>自动记录</span><strong>${distribution.total_seconds?e(compactTime(distribution.total_seconds)):'暂无记录'}</strong><small>${distribution.source_count?`${distribution.source_count} 个学习来源`:'等待你的第一段专注'}</small></div></div><div class="donut-legend"><div class="legend-head"><span>${appState.chartGroup==='category'?'学习分类':'学习来源'}</span><span>时长 / 占比</span></div>${legend}</div></div><div class="chart-footnote"><span>${icon('info',13)}圆环包含 ${e(shortTime(distribution.pending_seconds))} 待确认时长，连续空闲 3 分钟时会回扣。</span>${manualNote}</div></section>`;
+}
+function calendarPanel(calendar,report) {
+  const isMonth=appState.range==='month',isWeek=appState.range==='week';
+  const title=isWeek?'这一周，专注在发生':isMonth?'把一个月的积累，看清楚':'你的学习时间线';
+  const max=calendar.max_seconds;
+  const units=max>=3600?'小时':'分钟';
+  const unit=max>=3600?3600:60;
+  const natural=Math.max(max/unit,1);
+  const tickStep=natural<=4?1:natural<=10?2:natural<=20?5:natural<=60?15:Math.ceil(natural/4/10)*10;
+  const top=Math.ceil(natural/tickStep)*tickStep*unit;
+  const weekdays=['一','二','三','四','五','六','日'];
+  const dateRange=calendar.days.length?`${calendar.days[0].date.replaceAll('-','.')} — ${calendar.days.at(-1).date.replaceAll('-','.')}`:'';
+  const ticks=[0,.25,.5,.75,1].map(fraction=>({value:top*fraction,position:fraction*100}));
+  const axis=ticks.map(tick=>`<span style="bottom:${tick.position}%">${Number((tick.value/unit).toFixed(1))}</span>`).join('');
+  const grids=ticks.map(tick=>`<i style="bottom:${tick.position}%"></i>`).join('');
+  const monthlyLabels=new Set([1,5,10,15,20,25,calendar.days.length]);
+  const columns=calendar.days.map((day,index)=>{
+    const amount=Math.max(0,Number(day.seconds)||0),pending=Math.min(amount,day.pending_seconds||0);
+    const height=amount/top*100,pendingHeight=amount?pending/amount*100:0;
+    const dayNumber=Number(day.date.slice(-2));
+    const dateLabel=isWeek?`周${weekdays[index]}`:isMonth?(monthlyLabels.has(dayNumber)||day.is_today?String(dayNumber):''):(index%Math.max(1,Math.ceil(calendar.days.length/9))===0?day.date.slice(5).replace('-','/'):day.is_today?'今天':'');
+    const tip=day.is_future?`${day.date} · 尚未到来`:`${day.date}${day.is_today?' · 今天':''} · ${shortTime(day.seconds)}${pending?`（含待确认 ${shortTime(pending)}）`:''}`;
+    return `<div class="calendar-column${day.is_future?' future':''}${day.is_today?' today':''}"><button class="bar-hit" data-chart-tip="${e(tip)}" data-chart-key="day-${e(day.date)}" aria-label="${e(tip)}">${day.is_future?'<span class="future-slot" aria-hidden="true"></span>':amount>0?`<span class="bar-body" style="height:${height}%"><span class="pending-cap" style="height:${pendingHeight}%"></span></span>`:'<span class="zero-point" aria-hidden="true"></span>'}</button><span class="calendar-day-label">${e(dateLabel)}</span>${isWeek?`<span class="calendar-date-label">${e(day.date.slice(5).replace('-','/'))}</span>`:''}</div>`;
+  }).join('');
+  const best=calendar.best_day;
+  const manual=StudyCharts.buildDistribution(report.sessions,{limit:5});
+  return `<section class="card calendar-card"><div class="card-head"><div><h2>${title}</h2><p class="chart-subtitle">${e(dateRange)}</p></div><div class="bar-key"><span><i></i>已确认</span><span><i class="pending"></i>待确认</span><span><i class="future"></i>未到日期</span></div></div><div class="calendar-chart"><div class="axis-unit">${units}</div><div class="y-axis">${axis}</div><div class="calendar-plot"><div class="plot-grid">${grids}</div><div class="calendar-columns${isMonth?' monthly':''}" style="grid-template-columns:repeat(${Math.max(1,calendar.days.length)},minmax(0,1fr))">${columns}</div></div></div><div class="calendar-summary"><div><span>日均学习</span><strong>${e(compactTime(calendar.average_seconds))}</strong><small>按已过 ${calendar.elapsed_days} 个自然日计算</small></div><div><span>最投入的一天</span><strong>${best?e(compactTime(best.seconds)):'—'}</strong><small>${best?e(best.date.replaceAll('-','.')):'尚无学习记录'}</small></div><div><span>有学习记录的日子</span><strong>${calendar.active_days}<em> / ${calendar.elapsed_days} 天</em></strong><small>未来日期不参与统计</small></div></div><div class="chart-footnote"><span>${icon('info',13)}柱状图包含手动修正与待确认时长；待确认部分用浅色纹理标记。</span>${manual.manual_count?`<span class="manual-note">所选时段手动修正合计 ${e(signedTime(manual.manual_seconds))}。</span>`:''}</div></section>`;
+}
+function sourceRanking(report) {
+  const distribution=StudyCharts.buildDistribution(report.sessions,{groupBy:'source',limit:6});
+  const items=distribution.items;
+  const max=Math.max(...items.map(item=>item.seconds),1);
+  return `<section class="card source-ranking"><div class="card-head"><h2>学习来源明细</h2><small>自动记录 · ${distribution.source_count} 个来源</small></div>${items.length?`<div class="source-ranking-grid">${items.map(item=>`<div class="source-detail-row"><span class="legend-color" style="background:${item.color}"></span><div class="source-detail-info"><span>${e(item.name)}</span><div class="rank-track"><i style="width:${item.seconds/max*100}%;background:${item.color}"></i></div></div><strong>${e(compactTime(item.seconds))}</strong></div>`).join('')}</div>`:`<p class="ranking-empty">自动记录积累后，常用的学习软件与网站会显示在这里。</p>`}</section>`;
 }
 function renderOverview() {
-  const {report = {},config = {},status = {}} = appState.data || {};
-  const total = Math.max(0, Number(report.total_seconds) || 0), hours = Math.floor(total/3600), minutes = Math.floor(total%3600/60);
-  const heroTime = total < 60 ? `<strong>${total > 0 && total < 1 ? '不足 1' : Math.floor(total)}</strong><span>秒</span>` : `<strong>${hours}</strong><span>小时</span><strong>${minutes}</strong><span>分钟</span>`;
-  const items = (report.items || []).filter(item => item.seconds > 0).sort((a,b)=>b.seconds-a.seconds);
-  const top = items.slice(0,5), max = Math.max(...top.map(item=>item.seconds),1);
-  const names = {today:'今日学习时长',week:'本周学习时长',month:'本月学习时长',custom:'所选时段学习时长'};
-  const info = statusInfo();
-  const connection = !!status.browser_connected;
-  return heading('YOUR LEARNING, IN FOCUS','每一份专注，都算数。','看见学习的积累，也为下一次投入留出空间。',`<button class="btn" data-action="export">${icon('download',14)}导出记录</button>`)+periodToolbar()+
-    `<div class="hero-grid"><section class="card hero-card"><div class="hero-label">${e(names[appState.range])}</div><div class="total-time">${heroTime}</div><p class="hero-caption">包含 ${e(shortTime(report.pending_seconds || 0))} 待确认时长 · 连续空闲 3 分钟将自动回扣</p><div class="hero-bottom"><span class="current-source"><span class="status-dot ${info.dot}"></span><span>${e(info.text)}</span></span><span class="hint">只记录前台窗口</span></div></section><section class="card focus-card"><div><div class="card-kicker">A LITTLE MORE FOCUS.</div><h2>专注当下。<br>让成长自然发生。</h2><p>软件与学习网站分开统计，记录属于你的学习节奏。</p></div><div style="margin-top:18px"><div class="connection-status"><span class="status-dot ${connection ? 'green' : 'gray'}"></span>${connection ? '浏览器扩展已连接' : '浏览器扩展尚未连接'}</div><button class="btn btn-text" data-action="go-settings">${connection ? '管理统计设置' : '连接浏览器扩展'}${icon('arrow',13)}</button></div></section></div>
-    <div class="metric-grid"><section class="card metric-card"><div><p class="metric-label">已确认时长</p><div class="metric-value">${e(compactTime(report.confirmed_seconds || 0))}</div><p class="metric-note">已写入本机记录</p></div><span class="metric-icon">${icon('check',18)}</span></section><section class="card metric-card"><div><p class="metric-label">待确认时长</p><div class="metric-value">${e(compactTime(report.pending_seconds || 0))}</div><p class="metric-note">等待下一次键鼠活动确认</p></div><span class="metric-icon">${icon('clock',17)}</span></section><section class="card metric-card"><div><p class="metric-label">已使用的学习来源</p><div class="metric-value">${items.length}<small>个</small></div><p class="metric-note">${(config.apps || []).filter(app=>app.enabled).length} 个软件 · ${(config.websites || []).filter(site=>site.enabled !== false).length} 个网站已启用</p></div><span class="metric-icon">${icon('apps',17)}</span></section></div>
-    <div class="chart-grid"><section class="card chart-card"><div class="card-head"><h2>专注的轨迹</h2><small>每日学习时长</small></div>${chartSvg(report.daily)}</section><section class="card rank-card"><div class="card-head"><h2>时间花在哪里</h2><small>${items.length ? `前 ${top.length} 项` : '学习来源'}</small></div>${top.length ? top.map((item,index)=>`<div class="rank-row">${avatar(item.name,item.kind,index)}<div style="min-width:0"><div class="rank-name">${e(item.name)}</div><div class="rank-track"><i style="width:${Math.max(2,item.seconds/max*100)}%"></i></div></div><div class="rank-time">${e(compactTime(item.seconds))}</div></div>`).join('') : `<div class="chart-empty"><span class="empty-icon">${icon('sparkle',30)}</span><span>打开一个学习软件，开始积累。</span></div>`}</section></div>`;
+  const {report={},config={},status={}}=appState.data||{};
+  const total=Math.max(0,Number(report.total_seconds)||0),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);
+  const heroTime=total<60?`<strong>${total>0&&total<1?'不足 1':Math.floor(total)}</strong><span>秒</span>`:`<strong>${hours}</strong><span>小时</span><strong>${minutes}</strong><span>分钟</span>`;
+  const names={today:'今日学习时长',week:'本周学习时长',month:'本月学习时长',custom:'所选时段学习时长'};
+  const distribution=StudyCharts.buildDistribution(report.sessions,{groupBy:appState.chartGroup,limit:5});
+  const info=statusInfo(),connection=!!status.browser_connected;
+  const chart=appState.range==='today'?donutPanel(distribution):calendarPanel(StudyCharts.buildCalendar(report.daily,report.sessions,{...params(),today:dateKey()}),report);
+  return `<div class="overview-layout">${heading('','学习概览','',`<button class="btn" data-action="export">${icon('download',14)}导出记录</button>`)}${periodToolbar()}<section class="card overview-summary"><div class="summary-numbers"><div class="summary-total"><div class="hero-label">${e(names[appState.range])}</div><div class="total-time">${heroTime}</div></div><div class="summary-metric"><span>已确认</span><strong>${e(compactTime(report.confirmed_seconds||0))}</strong><small>已写入本机记录</small></div><div class="summary-metric"><span>待确认</span><strong>${e(compactTime(report.pending_seconds||0))}</strong><small>空闲超时将回扣</small></div><div class="summary-metric"><span>学习来源</span><strong>${distribution.source_count}<em> 个</em></strong><small>${(config.apps||[]).filter(app=>app.enabled).length} 个软件已启用</small></div></div><div class="summary-status"><span class="current-source"><span class="status-dot ${info.dot}"></span><span>${e(info.text)}</span></span><button class="summary-browser" data-action="go-settings">${icon('websites',13)}${connection?'扩展已连接':'连接浏览器扩展'}${icon('arrow',12)}</button></div></section>${chart}${sourceRanking(report)}</div>`;
 }
 function renderApps() {
   const apps = appState.data?.config?.apps || [];
@@ -162,7 +191,7 @@ function renderWebsiteRows(websites,totalCount) {
 function renderRecords() {
   const sessions = appState.data?.report?.sessions || [];
   return heading('MOMENTS THAT ADD UP','每一段时间，都有来处。','查看学习记录，或手动修正遗漏与误计的时长。',`<button class="btn" data-action="export">${icon('download',14)}导出 CSV</button><button class="btn btn-primary" data-action="manual">${icon('plus',14)}修正记录</button>`)+periodToolbar()+
-    `<section class="card list-card">${sessions.length ? `<table class="records-table"><thead><tr><th>学习来源</th><th>日期 / 时间</th><th>分类</th><th>时长</th><th aria-label="操作"></th></tr></thead><tbody>${sessions.map(row=>`<tr><td><span>${e(row.name)}</span>${row.manual ? '<span class="manual-badge">修正</span>' : ''}</td><td class="time-cell">${e(formatStamp(row.start,true))}${row.manual ? '' : ` — ${e(formatStamp(row.end))}`}</td><td>${e(categoryName(row.category))}</td><td class="time-cell${Number(row.seconds)<0 ? ' negative' : ''}">${e(shortTime(row.seconds))}</td><td>${row.manual ? `<button class="icon-button danger" data-action="delete-manual" data-id="${e(row.id)}" aria-label="删除这条手动修正">${icon('trash',14)}</button>` : ''}</td></tr>`).join('')}</tbody></table><div class="record-info">显示 ${sessions.length} 条记录。待确认的空闲片段可能回扣；导出以本机保存的记录为准。</div>` : emptyState('这里会留下你的学习足迹','选定时间内暂无记录。打开已启用的软件开始学习，也可以添加手动修正。','records',`<button class="btn btn-soft" data-action="manual">添加手动记录</button>`)}</section>`;
+    `<section class="card list-card">${sessions.length ? `<table class="records-table"><thead><tr><th>学习来源</th><th>日期 / 时间</th><th>分类</th><th>时长</th><th aria-label="操作"></th></tr></thead><tbody>${sessions.map(row=>`<tr><td><span>${e(row.name)}</span>${row.manual ? '<span class="manual-badge">修正</span>' : row.pending ? '<span class="pending-badge">待确认</span>' : ''}</td><td class="time-cell">${e(formatStamp(row.start,true))}${row.manual ? '' : ` — ${e(formatStamp(row.end))}`}</td><td>${e(categoryName(row.category))}</td><td class="time-cell${Number(row.seconds)<0 ? ' negative' : ''}">${e(shortTime(row.seconds))}</td><td>${row.manual ? `<button class="icon-button danger" data-action="delete-manual" data-id="${e(row.id)}" aria-label="删除这条手动修正">${icon('trash',14)}</button>` : ''}</td></tr>`).join('')}</tbody></table><div class="record-info">显示 ${sessions.length} 条记录。待确认的空闲片段可能回扣；导出以本机保存的记录为准。</div>` : emptyState('这里会留下你的学习足迹','选定时间内暂无记录。打开已启用的软件开始学习，也可以添加手动修正。','records',`<button class="btn btn-soft" data-action="manual">添加手动记录</button>`)}</section>`;
 }
 function renderSettings() {
   const config = appState.data?.config || {}, connected = !!appState.data?.status?.browser_connected;
@@ -186,12 +215,13 @@ async function refresh(forceRender = false) {
     updateChrome();
     const editing = ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName);
     const changedConfig=appState.renderedConfig!==JSON.stringify(appState.data.config || {});
-    if (forceRender || (!editing && !$('#modal-root').children.length && (appState.page === 'overview' || changedConfig))) {
+    const inspectingChart=appState.chartHover||!!document.activeElement?.closest?.('[data-chart-tip]');
+    if (forceRender || (!editing && !inspectingChart && !$('#modal-root').children.length && (appState.page === 'overview' || appState.page === 'records' || changedConfig))) {
       const focused=document.activeElement;
       const focusAction=focused?.dataset?.action;
-      const focusValue=focused?.dataset?.value;
+      const focusIdentity=Object.fromEntries(['action','value','id','domain'].map(key=>[key,focused?.dataset?.[key]]));
       render();
-      if(!forceRender && focusAction) $$('[data-action]').find(button=>button.dataset.action===focusAction&&button.dataset.value===focusValue)?.focus({preventScroll:true});
+      if(!forceRender && focusAction) $$('[data-action]').find(button=>Object.entries(focusIdentity).every(([key,value])=>button.dataset[key]===value))?.focus({preventScroll:true});
     }
   } catch (error) {
     appState.connected = false;
@@ -224,7 +254,7 @@ async function scanApps() {
   }
 }
 function manualModal() {
-  showModal('手动修正学习时长',`<p class="modal-description">正数补记，负数扣减。修正会单独保留，不改写自动记录，之后可以删除。</p><form id="manual-form"><div class="form-grid"><div class="form-field"><label for="manual-date">日期</label><input class="text-input" id="manual-date" type="date" value="${dateKey()}" required></div><div class="form-field"><label for="manual-minutes">修正分钟数</label><input class="text-input" id="manual-minutes" type="number" step="0.1" placeholder="例如 30 或 -10" required></div><div class="form-field full"><label for="manual-name">记录名称</label><input class="text-input" id="manual-name" placeholder="例如：补记论文阅读" maxlength="100" required></div><div class="form-field full"><label for="manual-category">分类</label><select class="select-input" id="manual-category"><option value="research">论文研究</option><option value="coding">编程开发</option><option value="notes">笔记整理</option><option value="ai">AI 助手</option><option value="other">其他学习</option></select></div></div><p class="field-note">手动修正不受三分钟空闲规则影响。负数扣减应与当天已记录的时长相符。</p></form>`,`<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="save-manual">保存修正</button>`);
+  showModal('手动修正学习时长',`<p class="modal-description">正数补记，负数扣减。修正会单独保留，不改写自动记录，之后可以删除。</p><form id="manual-form"><div class="form-grid"><div class="form-field"><label for="manual-date">日期</label><input class="text-input" id="manual-date" type="date" value="${dateKey()}" max="${dateKey()}" required></div><div class="form-field"><label for="manual-minutes">修正分钟数</label><input class="text-input" id="manual-minutes" type="number" step="0.1" placeholder="例如 30 或 -10" required></div><div class="form-field full"><label for="manual-name">记录名称</label><input class="text-input" id="manual-name" placeholder="例如：补记论文阅读" maxlength="100" required></div><div class="form-field full"><label for="manual-category">分类</label><select class="select-input" id="manual-category"><option value="research">论文研究</option><option value="coding">编程开发</option><option value="notes">笔记整理</option><option value="ai">AI 助手</option><option value="other">其他学习</option></select></div></div><p class="field-note">手动修正不受三分钟空闲规则影响。负数扣减应与当天已记录的时长相符。</p></form>`,`<button class="btn" data-action="close-modal">取消</button><button class="btn btn-primary" data-action="save-manual">保存修正</button>`);
 }
 async function browseApp() {
   const app = await api('browse_app');
@@ -241,11 +271,14 @@ async function runAction(button) {
   button.disabled = true;
   try {
     switch (action) {
+      case 'chart-group': appState.chartGroup=button.dataset.value==='category'?'category':'source';hideChartTooltip();render();break;
       case 'retry': await refresh(true); break;
       case 'range': appState.range = button.dataset.value; if (!appState.start) appState.start = dateKey(); if (!appState.end) appState.end = dateKey(); await refresh(true); break;
       case 'apply-range': {
         const start = $('#range-start').value,end = $('#range-end').value;
         if (!start || !end || start>end) throw new Error('请填写有效的起止日期，开始日期不能晚于结束日期。');
+        StudyCharts.buildCalendar([],[],{range:'custom',today:dateKey(),start,end});
+        if(end>dateKey())throw new Error('自定义范围只查看已发生的记录，结束日期不能晚于今天。');
         appState.start=start;appState.end=end;await refresh(true);break;
       }
       case 'go-settings': location.hash='settings'; break;
@@ -276,7 +309,10 @@ async function runAction(button) {
         const form=$('#manual-form');if(!form.reportValidity())break;
         const minutes=Number($('#manual-minutes').value);if(!Number.isFinite(minutes)||minutes===0)throw new Error('请输入非零的有效分钟数。');
         const name=$('#manual-name').value.trim();if(!name)throw new Error('请填写记录名称。');
-        await api('add_manual',{date:$('#manual-date').value,minutes,name,category:$('#manual-category').value});closeModal();await refresh(true);toast('手动修正已保存。');break;
+        const manualDate=$('#manual-date').value;
+        StudyCharts.buildCalendar([],[],{range:'custom',today:dateKey(),start:manualDate,end:manualDate});
+        if(manualDate>dateKey())throw new Error('只能修正今天或过去的记录，不能填写未来日期。');
+        await api('add_manual',{date:manualDate,minutes,name,category:$('#manual-category').value});closeModal();await refresh(true);toast('手动修正已保存。');break;
       }
       case 'delete-manual': confirmAction('删除手动修正','删除后会恢复这条修正前的统计结果。自动记录不会受影响。','confirm-delete-manual',`data-id="${e(button.dataset.id)}"`);break;
       case 'confirm-delete-manual': await api('delete_manual',button.dataset.id);closeModal();await refresh(true);toast('手动修正已删除。');break;
@@ -319,11 +355,23 @@ document.addEventListener('input',event=>{
   if(event.target.id==='scan-search'){const value=event.target.value.toLowerCase();$$('.scan-row').forEach(row=>row.hidden=!row.dataset.search.includes(value));}
 });
 document.addEventListener('change',event=>{if(event.target.id==='site-category')appState.siteDraft.category=event.target.value;});
+function showChartTooltip(target){
+  const tooltip=$('#chart-tooltip');if(!tooltip||!target?.dataset.chartTip)return;
+  tooltip.textContent=target.dataset.chartTip;tooltip.hidden=false;
+  const box=target.getBoundingClientRect(),width=tooltip.offsetWidth;
+  const middle=Math.max(width/2+10,Math.min(window.innerWidth-width/2-10,box.left+box.width/2));
+  tooltip.style.left=`${middle}px`;tooltip.style.top=`${Math.max(tooltip.offsetHeight+12,box.top-8)}px`;
+}
+function hideChartTooltip(){const tooltip=$('#chart-tooltip');if(tooltip)tooltip.hidden=true;appState.chartHover=false;}
+document.addEventListener('mouseover',event=>{const target=event.target.closest?.('[data-chart-tip]');if(target){appState.chartHover=true;showChartTooltip(target);}});
+document.addEventListener('mouseout',event=>{const target=event.target.closest?.('[data-chart-tip]');if(target&&!target.contains(event.relatedTarget))hideChartTooltip();});
+document.addEventListener('focusin',event=>{const target=event.target.closest?.('[data-chart-tip]');if(target)showChartTooltip(target);});
+document.addEventListener('focusout',event=>{if(event.target.closest?.('[data-chart-tip]'))hideChartTooltip();});
 document.addEventListener('keydown',event=>{
-  if(event.key==='Escape'){closeModal();if(appState.browserSetup){appState.browserSetup=null;if(appState.page==='settings')render();}}
+  if(event.key==='Escape'){hideChartTooltip();closeModal();if(appState.browserSetup){appState.browserSetup=null;if(appState.page==='settings')render();}}
   if(event.key==='Tab'&&$('.modal')){const focusable=$$('button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href]',$('.modal')).filter(node=>!node.hidden);const first=focusable[0],last=focusable.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
 });
-function onNavigate(){const key=location.hash.slice(1);appState.page=pageNames[key]?key:'overview';appState.browserSetup=null;closeModal();window.scrollTo(0,0);render();if(appState.connected)refresh(true);}
+function onNavigate(){const key=location.hash.slice(1);appState.page=pageNames[key]?key:'overview';appState.browserSetup=null;hideChartTooltip();closeModal();window.scrollTo(0,0);render();if(appState.connected)refresh(true);}
 window.addEventListener('hashchange',onNavigate);
 let started=false;
 async function start(){if(started)return;started=true;appState.page=pageNames[location.hash.slice(1)]?location.hash.slice(1):'overview';appState.start=dateKey();appState.end=dateKey();$('#demo-banner').hidden=!DEMO;updateChrome();await refresh(true);setInterval(()=>refresh(false),2000);}
@@ -332,9 +380,40 @@ window.addEventListener('pywebviewready',start);
 // Explicit opt-in visual demo, isolated from the real native bridge.
 const demoConfig={apps:[{id:'demo-codex',name:'Codex',path:'示例应用 / Codex.exe',exe:'Codex.exe',category:'ai',enabled:true},{id:'demo-vscode',name:'Visual Studio Code',path:'示例应用 / Code.exe',exe:'Code.exe',category:'coding',enabled:true},{id:'demo-zotero',name:'Zotero',path:'示例应用 / zotero.exe',exe:'zotero.exe',category:'research',enabled:true},{id:'demo-obsidian',name:'Obsidian',path:'示例应用 / Obsidian.exe',exe:'Obsidian.exe',category:'notes',enabled:true}],websites:[{domain:'arxiv.org',category:'research',enabled:true},{domain:'github.com',category:'coding',enabled:true},{domain:'chatgpt.com',category:'ai',enabled:true},{domain:'docs.python.org',category:'docs',enabled:true}],autostart:true};
 let demoPaused=false;
+function demoReport(options={range:'today'}) {
+  const today=dateKey();
+  const calendar=StudyCharts.buildCalendar([],[],{...options,today});
+  const names=[['demo-vscode','Visual Studio Code','app','coding',5040],['demo-codex','Codex','app','ai',3780],['demo-zotero','Zotero','app','research',2280],['arxiv.org','arxiv.org','website','research',1320],['demo-obsidian','Obsidian','app','notes',900]];
+  const daily=[],sessions=[],items=new Map();
+  let ident=0,total=0,pending=0;
+  for(const day of calendar.days){
+    if(day.is_future)continue;
+    const dateNumber=Number(day.date.slice(-2));
+    const automatic=day.is_today?13320:dateNumber%8===0?0:[7200,9840,5400,16200,11100,8760,13320][dateNumber%7];
+    let allocated=0,cursor=new Date(`${day.date}T08:00:00+08:00`).getTime()/1000;
+    for(let index=0;index<names.length;index++){
+      const [id,name,kind,category,weight]=names[index];
+      const seconds=index===names.length-1?automatic-allocated:Math.floor(automatic*weight/13320);allocated+=seconds;
+      if(!seconds)continue;
+      const source={source_id:id,name,kind,category,manual:false,date:day.date};
+      const provisional=day.is_today&&index===0?60:0;
+      sessions.push({...source,id:++ident,start:cursor,end:cursor+seconds-provisional,seconds:seconds-provisional,pending:false});
+      cursor+=seconds-provisional;
+      if(provisional){sessions.push({...source,id:`pending-demo`,start:cursor,end:cursor+provisional,seconds:provisional,pending:true});cursor+=provisional;pending+=provisional;}
+      const item=items.get(id)||{id,name,kind,category,seconds:0};item.seconds+=seconds;items.set(id,item);
+    }
+    const correction=day.is_today?600:0;
+    if(day.is_today){
+      const stamp=new Date(`${day.date}T00:00:00+08:00`).getTime()/1000;
+      sessions.push({id:++ident,source_id:'manual:demo:add',name:'补记阅读',kind:'manual',category:'research',seconds:900,start:stamp,end:stamp,manual:true,pending:false,date:day.date});
+      sessions.push({id:++ident,source_id:'manual:demo:subtract',name:'修正误计',kind:'manual',category:'research',seconds:-300,start:stamp,end:stamp,manual:true,pending:false,date:day.date});
+    }
+    daily.push({date:day.date,seconds:automatic+correction});total+=automatic+correction;
+  }
+  return {total_seconds:total,confirmed_seconds:total-pending,pending_seconds:pending,items:[...items.values()],daily,sessions:sessions.sort((a,b)=>b.start-a.start)};
+}
 const demoApi={
-  get_state:async()=>({version:'1.0.0 · 演示',config:demoConfig,status:{paused:demoPaused,idle_seconds:38,state:'active',current_name:'Visual Studio Code',browser_connected:true},report:{total_seconds:13320,confirmed_seconds:13260,pending_seconds:60,items:[{id:'demo-vscode',name:'Visual Studio Code',kind:'app',category:'coding',seconds:5040},{id:'demo-codex',name:'Codex',kind:'app',category:'ai',seconds:3780},{id:'demo-zotero',name:'Zotero',kind:'app',category:'research',seconds:2280},{id:'arxiv.org',name:'arxiv.org',kind:'website',category:'research',seconds:1320},{id:'demo-obsidian',name:'Obsidian',kind:'app',category:'notes',seconds:900}],daily:Array.from({length:7},(_,i)=>({date:dateKey(new Date(Date.now()-(6-i)*86400000)),seconds:[7200,9840,5400,16200,11100,8760,13320][i]})),sessions:[{id:1,start:Date.now()/1000-5040,end:Date.now()/1000,name:'Visual Studio Code',kind:'app',category:'coding',seconds:5040,manual:false}]}}),
-  set_paused:async value=>{demoPaused=value;return{ok:true};},scan_apps:async()=>demoConfig.apps,save_apps:async apps=>{demoConfig.apps=apps;return{ok:true};},browse_app:async()=>null,save_websites:async sites=>{demoConfig.websites=sites;return{ok:true};},add_manual:async()=>{throw new Error('演示界面不保存记录。');},delete_manual:async()=>{throw new Error('演示界面不修改记录。');},export_csv:async()=>{throw new Error('演示界面不导出数据。');},set_autostart:async value=>{demoConfig.autostart=value;return{ok:true};},get_browser_setup:async()=>({token:'DEMO-ONLY-NOT-A-REAL-TOKEN',port:42821,extension_path:'演示目录'}),open_data_folder:async()=>{throw new Error('请在桌面程序中打开本机目录。');},open_extension_folder:async()=>{throw new Error('请在桌面程序中打开扩展目录。');},quit_app:async()=>{throw new Error('此处是演示界面。');}
+  get_state:async(options)=>({version:'1.1.0 · 演示',config:demoConfig,status:{paused:demoPaused,idle_seconds:38,state:'active',current_name:'Visual Studio Code',browser_connected:true},report:demoReport(options)}),
+  set_paused:async value=>{demoPaused=value;return{ok:true};},scan_apps:async()=>demoConfig.apps,save_apps:async apps=>{demoConfig.apps=apps;return{ok:true};},browse_app:async()=>null,save_websites:async sites=>{demoConfig.websites=sites;return{ok:true};},add_manual:async()=>{throw new Error('演示界面不保存记录。');},delete_manual:async()=>{throw new Error('演示界面不修改记录。');},export_csv:async()=>{throw new Error('演示界面不导出数据。');},set_autostart:async value=>{demoConfig.autostart=value;return{ok:true};},get_browser_setup:async()=>({token:'DEMO-ONLY-NOT-A-REAL-TOKEN',port:47831,extension_path:'演示目录'}),open_data_folder:async()=>{throw new Error('请在桌面程序中打开本机目录。');},open_extension_folder:async()=>{throw new Error('请在桌面程序中打开扩展目录。');},quit_app:async()=>{throw new Error('此处是演示界面。');}
 };
 if(DEMO)start();else if(window.pywebview?.api)start();else setTimeout(()=>{if(!started){$('#content').innerHTML='<div class="loading-screen"><span style="color:#a4b1c7">'+icon('apps',36)+'</span><h2>请从桌面程序打开。</h2><p>学习记录由本机服务提供，单独打开页面不会启动统计。</p></div>';}},5000);
-
