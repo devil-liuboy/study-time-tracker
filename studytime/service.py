@@ -8,7 +8,7 @@ import threading
 import time
 from . import __version__
 from .browser import BrowserBridge, PORT
-from .config import Config, BROWSERS, app_id, is_video, matches_domain
+from .config import Config, BROWSERS, app_id, is_video, matches_domain, wps_identity
 from .discovery import discover_apps
 from .engine import Engine
 from .store import Store
@@ -108,6 +108,7 @@ class Service:
                     return {'id': 'site:' + site['domain'], 'name': site['domain'], 'kind': 'website', 'category': site['category']}
             return None
         folded = os.path.normcase(os.path.abspath(path)) if path else ''
+        wps_module = wps_identity(path) if path else ''
         for app in config['apps']:
             exact = folded == os.path.normcase(os.path.abspath(app['path']))
             package_match = False
@@ -116,7 +117,8 @@ class Service:
                 package_name, _, publisher = family.rpartition('_')
                 package_dir = next((part for part in Path(path).parts if part.lower().startswith(package_name.lower() + '_') and part.lower().endswith('__' + publisher.lower())), '')
                 package_match = bool(package_dir)
-            if app['enabled'] and (exact or package_match):
+            wps_match = bool(wps_module and wps_module == wps_identity(app['path']))
+            if app['enabled'] and (exact or package_match or wps_match):
                 return {'id': app['id'], 'name': app['name'], 'kind': 'app', 'category': app['category']}
         return None
 

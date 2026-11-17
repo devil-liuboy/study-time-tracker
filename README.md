@@ -62,7 +62,9 @@
 布局参考 [Toggl Summary Report](https://support.toggl.com/en-us/article/summary-report-1emjk2m/) 和 [Clockify Summary Report](https://clockify.me/help/reports/summary-report) 的时间趋势与组成分布展示方式；图表、代码和视觉样式由本项目独立实现，不加载第三方图表服务。
 
 - 核心应用候选包括 Codex、Claude、Cursor、Antigravity、OpenCode、WorkBuddy、Cherry Studio、VS Code、PyCharm、IntelliJ IDEA、Eclipse、Dev-C++、Zotero、Obsidian。只有实际找到的可执行文件会加入，不代表每台电脑都装有这些应用。
-- Office/WPS、终端、阅读器、虚拟机等属于可选候选，默认不启用。在应用页扫描并勾选后才参与统计；软件搬迁后可重新扫描或重新选择路径。
+- 从 1.1.2 起，自动发现推荐 WPS PDF、文字、表格、演示，以及 Readest、Adobe Acrobat/Reader、Foxit/福昕、SumatraPDF、PDF-XChange、PDFgear、UPDF、Xodo、Okular、CAJViewer 等阅读软件。WPS 按整个模块的前台时间计入，包括文字编辑、表格和演示；不读取文档内容，也不判断是否正在看 PDF。
+- WPS 数字版本目录升级后可继续匹配同一安装根目录内的同一模块，重新扫描时优先显示最新路径。Microsoft Office、终端、虚拟机等仍是可选候选，默认不启用。
+- 自动发现只列出实际存在且识别成功的可执行文件；便携版或未识别的 PDF 工具可以手动添加。老用户在“学习软件 → 自动发现”中添加新推荐项，已有停用选择会保留。浏览器仍按网站白名单统计，不因能够打开 PDF 而整机启用。
 - 默认提供 19 个学习网站规则，涵盖 arXiv、GitHub、Hugging Face、学术检索、技术文档和 AI 对话。白名单可以修改；一个域名规则同时包含其子域名，并汇总到该规则。例如 `github.com` 不会匹配 `github.com.example.org`。
 - 今日、本周、本月与自定义日期报表展示总量、应用/网站分类和趋势，并支持 CSV 导出。
 - 手动修正以独立的增减记录保留，可撤销。它不会改写自动记录；修正后的单日已确认总量须在 0～24 小时之间。补记日期不能晚于北京时间今天，自定义报表也只查询已经到来的日期。

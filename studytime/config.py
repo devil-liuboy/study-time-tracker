@@ -16,6 +16,16 @@ SITES = {
 }
 VIDEO_DOMAINS = ('bilibili.com', 'b23.tv', 'youtube.com', 'youtu.be', 'douyin.com', 'ixigua.com', 'youku.com', 'v.qq.com', 'twitch.tv', 'douyu.com', 'huya.com')
 BROWSERS = {'chrome.exe': 'chrome', 'msedge.exe': 'edge', 'firefox.exe': 'unsupported', 'brave.exe': 'unsupported', 'slbrowser.exe': 'unsupported', 'quark.exe': 'unsupported'}
+WPS_EXECUTABLES = ('wpspdf.exe', 'wps.exe', 'et.exe', 'wpp.exe')
+
+
+def wps_identity(path):
+    """Keep a WPS module stable across numeric versions within one install root."""
+    if Path(path).name.lower() not in WPS_EXECUTABLES:
+        return ''
+    canonical = os.path.realpath(path).replace('\\', '/')
+    match = re.fullmatch(r'(?i)(.+/wps office)/\d+(?:\.\d+){2,}/office6/(wpspdf|wps|et|wpp)\.exe', canonical)
+    return 'wps:' + match.group(1).lower() + ':' + match.group(2).lower() if match else ''
 
 def normalize_domain(value):
     if not isinstance(value, str):
@@ -43,7 +53,7 @@ def package_family_from_path(path):
 
 def app_id(path, package_family=None):
     family = package_family or package_family_from_path(path)
-    identity = ('msix:' + family.lower() + ':' + Path(path).name.lower()) if family else os.path.normcase(os.path.abspath(path))
+    identity = ('msix:' + family.lower() + ':' + Path(path).name.lower()) if family else (wps_identity(path) or os.path.normcase(os.path.abspath(path)))
     return 'app:' + hashlib.sha256(identity.encode()).hexdigest()[:20]
 
 def clean_text(value, label, limit, fallback=''):
